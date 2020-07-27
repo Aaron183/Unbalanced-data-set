@@ -1,0 +1,198 @@
+from sklearn import linear_model
+import numpy as np
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from PerformanceMeasure import PerformanceMeasure
+from Processing import Processing
+from Smote import Smote
+from SmoteAdaBoostRegressor import SAdaBoostClassifier
+from imblearn.over_sampling import SMOTE
+from sklearn.linear_model import LogisticRegression
+from imblearn.ensemble import RUSBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.datasets import make_classification
+from sklearn.metrics import recall_score
+from sklearn.metrics import f1_score,precision_score
+from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import matthews_corrcoef
+import pandas as pd
+import csv
+from sklearn import metrics
+from sklearn.metrics import confusion_matrix
+
+def readData(train_file_path,test_file_path,num_factors):
+
+    def transform_x(data):
+        data_x = []
+        for row in data:
+            data_i = []
+            for i in row:
+                data_i.append(float(i))
+            data_x.append(data_i)
+        return data_x
+
+    def transform_y(data):
+        data_y = []
+        for i in data:
+            data_y.append(float(i))
+        return data_y
+
+    data1 = csv.reader(open(train_file_path,'r'))
+    training_data_X = []
+    training_data_y = []
+    for row in data1:
+        training_data_X.append(row[:num_factors]) 
+        training_data_y.append(row[num_factors]) 
+    training_data_X = training_data_X[1:]
+    training_data_y = training_data_y[1:]
+    training_data_X= np.array(transform_x(training_data_X)) 
+    training_data_y = np.array(transform_y(training_data_y))
+
+    data2 = csv.reader(open(test_file_path,'r'))
+    testing_data_X = []
+    testing_data_y= []
+    for row in data2:
+        testing_data_X.append(row[:num_factors])
+        testing_data_y.append(row[num_factors])
+    testing_data_X = testing_data_X[1:]
+    testing_data_y = testing_data_y[1:]
+    testing_data_X = np.array(transform_x(testing_data_X))
+    testing_data_y = np.array(transform_y(testing_data_y))
+    return training_data_X,training_data_y,testing_data_X,testing_data_y
+
+training_data_X,training_data_y,testing_data_X,testing_data_y= readData(
+        train_file_path='',
+        test_file_path='',
+         num_factors=16)
+
+
+RF = RandomForestClassifier(n_estimators=10,max_depth=5,min_samples_split=5).fit(training_data_X, training_data_y)
+y_probability=RF.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+y_prob=RF.predict(testing_data_X)
+RF_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('RF_auc',RF_auc)
+
+lr = LogisticRegression().fit(training_data_X, training_data_y)
+lr_pred_y=np.around(lr.predict(testing_data_X))
+y_probability=lr.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+lr_auc = metrics.roc_auc_score(testing_data_y,y_probability_first)  
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('lr_auc',lr_auc)
+
+GNB = GaussianNB().fit(training_data_X, training_data_y)
+lr_pred_y=np.around(GNB.predict(testing_data_X))
+y_probability=GNB.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+GNB_auc = metrics.roc_auc_score(testing_data_y,y_probability_first)  
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('GNB_auc',GNB_auc)
+
+smote = SMOTE(ratio={1: 133000},random_state=0)
+smote_X, smote_y  = smote.fit_sample(training_data_X,training_data_y)
+rng = np.random.RandomState(1)
+
+RF = RandomForestClassifier(n_estimators=10,max_depth=8,min_samples_split=5).fit(smote_X, smote_y)
+RF_pred_y=np.around(RF.predict(testing_data_X))
+y_probability=RF.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+RF_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('smote_RF_auc',RF_auc)
+
+lr = LogisticRegression().fit(smote_X, smote_y)
+lr_pred_y=np.around(lr.predict(testing_data_X))
+y_probability=lr.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+lr_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('smote_lg_auc',lr_auc)
+
+GNB =GaussianNB().fit(smote_X, smote_y)
+lr_pred_y=np.around(GNB.predict(testing_data_X))
+y_probability=GNB.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+GNB_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('smote_GNB_auc',GNB_auc)
+
+rus_X, rus_y, _id = RandomUnderSampler(ratio=1.0, return_indices=True).fit_sample(training_data_X, training_data_y)
+
+RF = RandomForestClassifier(n_estimators=10,max_depth=8,min_samples_split=5).fit(rus_X, rus_y)
+RF_pred_y=np.around(RF.predict(testing_data_X))
+y_probability=RF.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+RF_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('rus_RF_auc',RF_auc)
+
+lr = LogisticRegression().fit(rus_X, rus_y)
+lr_pred_y=np.around(lr.predict(testing_data_X))
+y_probability=lr.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+lr_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('rus_lg_auc',lr_auc)
+
+GNB= GaussianNB().fit(rus_X, rus_y)
+GNB_pred_y=np.around(GNB.predict(testing_data_X))
+y_probability=GNB.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+GNB_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first)
+print('rus_GNB_auc',GNB_auc)
+
+RF = RUSBoostClassifier(RandomForestClassifier(n_estimators=10,max_depth=6,min_samples_split=6), 
+                         n_estimators=100, random_state=rng).fit(training_data_X, training_data_y)
+RF_pred_y = np.around(RF.predict(testing_data_X))
+y_probability=RF.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+RF_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first) 
+print('rusboot_RF_auc',RF_auc)
+
+lr = RUSBoostClassifier(LogisticRegression(), n_estimators=110,random_state=rng).fit(training_data_X, training_data_y)
+lr_pred_y = np.around(lr.predict(testing_data_X))
+y_probability=lr.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+lr_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first) 
+print('rusboot_lr_auc',lr_auc)
+
+GNB = RUSBoostClassifier(GaussianNB(priors=None, var_smoothing=1e-07),n_estimators=1,random_state=rng).fit(training_data_X, training_data_y)
+GNB_pred_y = np.around(GNB.predict(testing_data_X))
+y_probability=GNB.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+GNB_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first) 
+print('rusboot_GNB_auc',GNB_auc)
+
+RF = AdaBoostClassifier(RandomForestClassifier(), n_estimators=100, random_state=rng).fit( smote_X, smote_y)
+RF_pred_y = np.around(RF.predict(testing_data_X))
+y_probability=RF.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+RF_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first) 
+print('smoteboot_RF _auc',RF_auc)
+
+lr = AdaBoostClassifier(LogisticRegression(), n_estimators=500, random_state=rng).fit(smote_X, smote_y)
+lr_pred_y = np.around(lr.predict(testing_data_X))
+y_probability=lr.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+lr_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first) 
+print('smoteboot_lr_auc',lr_auc)
+
+GNB= AdaBoostClassifier(GaussianNB(priors=None, var_smoothing=1e-07),n_estimators=1, random_state=rng).fit(smote_X, smote_y)
+GNB_pred_y = np.around(GNB.predict(testing_data_X))
+y_probability=GNB.predict_proba(testing_data_X)
+y_probability_first = [x[1] for x in y_probability]
+GNB_auc = metrics.roc_auc_score(testing_data_y,y_probability_first) 
+fpr, tpr, thresholds = metrics.roc_curve(testing_data_y, y_probability_first) 
+print('smoteboot_GNB_auc',GNB_auc)
+
+
+   
